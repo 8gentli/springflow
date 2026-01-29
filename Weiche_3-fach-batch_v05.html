@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Materialfluss auf Mafu-Transportsystem</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #eee; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow-x: hidden; }
+        canvas { background: #222; border: 1px solid #444; border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; width: 1000px; margin-top: 15px; background: #333; padding: 15px; border-radius: 8px; }
+        .control-group { display: flex; flex-direction: column; }
+        label { font-size: 0.6rem; margin-bottom: 3px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stats-container { display: flex; gap: 20px; width: 1000px; margin-top: 10px; }
+        .stats-box { flex: 1; font-family: monospace; background: #000; padding: 8px; border-radius: 4px; border-left: 4px solid #0f0; font-size: 0.85rem; }
+        input[type=range], select { width: 100%; cursor: pointer; background: #444; color: white; border: 1px solid #555; padding: 3px; }
+        span { font-size: 0.7em; color: #0af; }
+        .button-row { grid-column: 1 / -1; display: flex; gap: 10px; margin-top: 10px; justify-content: center; border-top: 1px solid #555; padding-top: 10px; }
+        button { padding: 10px 25px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; text-transform: uppercase; transition: 0.2s; min-width: 100px; }
+        .btn-start { background: #28a745; color: white; }
+        .btn-stop { background: #dc3545; color: white; }
+        .btn-reset { background: #6c757d; color: white; }
+        button:hover { opacity: 0.8; transform: translateY(-1px); }
+    </style>
+</head>
+<body>
+
+    <h3 style="margin: 5px 0; color: #eee; font-weight: 300;">Materialfluss auf Mafu-Transportsystem</h3>
+    <canvas id="simCanvas" width="1000" height="380"></canvas>
+
+    <div class="stats-container">
+        <div class="stats-box" id="globalStats">Zeit: 00:00 | Winder-Stopps: 0</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Weichen-Logik</label>
+            <select id="logicMode">
+                <option value="MAFU">MAFU</option>
+                <option value="LISI">Round-Robin</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>Sender-Takt (ppm)</label>
+            <input type="range" id="senderPpm" min="40" max="60" value="60">
+            <span id="senderPpmVal">60 ppm</span>
+        </div>
+        <div class="control-group">
+            <label>Global Stopp (%)</label>
+            <input type="range" id="probGlobal" min="0" max="100" value="20">
+            <span id="probGlobalVal">20%</span>
+        </div>
+        <div class="control-group">
+            <label>Indiv. Stopp (%)</label>
+            <input type="range" id="probIndiv" min="0" max="20" value="2">
+            <span id="probIndivVal">2%</span>
+        </div>
+        <div class="control-group">
+            <label>Max-Sensor (Federn)</label>
+            <input type="range" id="maxCap" min="1" max="15" value="8">
+            <span id="maxCapVal">8</span>
+        </div>
+        <div class="control-group">
+            <label>Pfad-Geschw.</label>
+            <input type="range" id="pathSpeed" min="1" max="10" step="0.5" value="3">
+            <span id="pathSpeedVal">3</span>
+        </div>
+        <div class="control-group">
+            <label>Sim.-Tempo</label>
+            <input type="range" id="simSpeed" min="1" max="50" step="1" value="1">
+            <span id="simSpeedVal">1</span>
+        </div>
+
+        <div class="button-row">
+            <button class="btn-start" onclick="toggleSim(true)">Start</button>
+            <button class="btn-stop" onclick="toggleSim(false)">Stopp</button>
+            <button class="btn-reset" onclick="resetSim()">Reset</button>
+        </div>
+    </div>
+	
+	<div style="margin-top: 25px; font-size: 0.8rem; color: #666; letter-spacing: 1px; font-family: 'Segoe UI', sans-serif;">
+		Vibe-Coded with <span style="color: #ff4d4d;">❤</span> and <span style="color: #0af; font-weight: bold;">Gemini</span> by lindersi
+	</div>
+
+<script>
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+const DOT_RADIUS = 4;
+const UNIT_SPACING = DOT_RADIUS * 2 + 3;
+const WEICHE_X = 180;
+const END_X = 820;
+const SOURCE_X = 50;
+const SENSOR_TIMEOUT = 500;
+
+let isRunning = false; 
+let state;
+
+function init() {
+    state = {
+        elapsedSimTime: 0,
+        sourceStops: 0,
+        sourceState: 'IDLE', 
+        lastSourceTime: 0,
+        lockStartTime: 0,
+        restartStartTime: 0,
+        activeTargetId: -1, 
+        lastDistributedId: 0,
+        pendingAfterStop: 0, 
+        lastActivePathId: 0,
+        globalDowntime: false,
+        globalDowntimeUntil: 0,
+        paths: Array.from({length: 3}, (_, i) => ({
+            id: i,
+            units: [], 
+            isDown: false,
+            starvationTimer: 0,
+            cycleTimer: 0,
+            missedUnits: 0,
+            processedUnits: 0,
+            y: 90 + i * 110,
+            requestMaterial: true,
+            maxSensorTimer: 0,
+            maxActive: false,
+            missCheckTimer: 0
+        }))
+    };
+}
+
+init();
+
+function toggleSim(val) { isRunning = val; }
+function resetSim() { init(); toggleSim(false); }
+
+const ui = (id) => document.getElementById(id);
+const config = {
+    get logic() { return ui('logicMode').value; },
+    get ppm() { return parseInt(ui('senderPpm').value); },
+    get maxCap() { return parseInt(ui('maxCap').value); }, 
+    get probGlobal() { return parseInt(ui('probGlobal').value); },
+    get probIndiv() { return parseInt(ui('probIndiv').value); },
+    get pathSpeed() { return parseFloat(ui('pathSpeed').value); },
+    get speed() { return parseFloat(ui('simSpeed').value); }
+};
+
+['senderPpm', 'pathSpeed', 'probGlobal', 'probIndiv', 'simSpeed', 'maxCap'].forEach(id => {
+    ui(id).oninput = () => ui(id+'Val').innerText = ui(id).value + (id.includes('prob')?'%':'');
+});
+
+function update() {
+    if (!isRunning) return;
+    const now = Date.now();
+    const simStep = config.speed;
+    state.elapsedSimTime += (16.67 * simStep);
+
+    if (!state.globalDowntime && config.probGlobal > 0) {
+        if (Math.random() < (0.0004 * simStep * (config.probGlobal/20))) { 
+            state.globalDowntime = true;
+            state.globalDowntimeUntil = now + (10000 / simStep);
+        }
+    } else if (now > state.globalDowntimeUntil) {
+        state.globalDowntime = false;
+    }
+
+    state.paths.forEach(p => {
+        const isBlocked = state.globalDowntime || (config.probIndiv > 0 && Math.random() * 100 < config.probIndiv / 100);
+
+        // Batch-Abnahme
+        if (p.maxActive && p.cycleTimer <= 0) {
+            const batchSize = Math.min(p.units.length, config.maxCap);
+            for(let i=0; i<batchSize; i++) {
+                p.units.shift();
+                p.processedUnits++;
+            }
+            p.units.forEach(u => u.isStauNachlauf = true);
+            
+            p.cycleTimer = (config.maxCap * 4500);
+            p.requestMaterial = true; 
+            p.maxActive = false;
+            p.maxSensorTimer = 0; // Timer resetten für sofortige Grün-Schaltung
+        }
+
+        // MISS Logik: Wenn Zyklus fertig, aber Max noch nicht voll
+        if (p.cycleTimer <= 0 && !p.maxActive && !isBlocked) {
+            p.missCheckTimer += (16.67 * simStep);
+            if (p.missCheckTimer >= 4500) {
+                p.missedUnits++;
+                p.starvationTimer = now + (2250 / simStep);
+                p.missCheckTimer = 0;
+            }
+        } else {
+            p.missCheckTimer = 0;
+        }
+
+        if (p.cycleTimer > 0) {
+            if (!isBlocked) p.cycleTimer -= (16.67 * simStep);
+            p.isDown = isBlocked;
+        } else {
+            p.isDown = isBlocked;
+        }
+
+        for (let u of p.units) {
+            const idx = p.units.indexOf(u);
+            const targetPos = (idx === 0) ? END_X : p.units[idx-1].pos - UNIT_SPACING;
+            if (u.pos < targetPos) {
+                const currentSpeed = u.isStauNachlauf ? (config.pathSpeed / 2) : config.pathSpeed;
+                u.pos += currentSpeed * simStep;
+                u.isMoving = true;
+                if (u.pos >= targetPos) { 
+                    u.pos = targetPos; 
+                    u.isMoving = false;
+                    u.isStauNachlauf = false;
+                }
+            } else { u.isMoving = false; }
+        }
+
+        const maxX = END_X - (config.maxCap - 0.5) * UNIT_SPACING;
+        const isMaxOccupied = p.units.some(u => Math.abs(u.pos - maxX) < UNIT_SPACING * 0.6);
+
+        if (isMaxOccupied) {
+            if (p.maxSensorTimer === 0) p.maxSensorTimer = now;
+            if (now - p.maxSensorTimer > SENSOR_TIMEOUT / simStep) {
+                p.maxActive = true;
+                p.requestMaterial = false;
+            }
+        } else {
+            p.maxSensorTimer = 0;
+            p.maxActive = false;
+            p.requestMaterial = true; // Pfad wieder gruen wenn Max nicht belegt
+        }
+    });
+
+    // Sender Zustandsmaschine
+    const anyReq = state.paths.some(p => p.requestMaterial);
+    if (state.sourceState === 'ACTIVE' && !anyReq) {
+        state.sourceState = 'BUFFER_STOP'; 
+        state.pendingAfterStop = 3;
+    } else if (state.sourceState === 'BUFFER_STOP' && state.pendingAfterStop <= 0) {
+        state.sourceState = 'LOCKED';
+        state.lockStartTime = now;
+        state.sourceStops++;
+    } else if (state.sourceState === 'LOCKED' && now - state.lockStartTime > 4000 / simStep) {
+        state.sourceState = 'IDLE';
+    } 
+
+    if ((state.sourceState === 'IDLE' || state.sourceState === 'BUFFER_STOP' || state.sourceState === 'LOCKED') && anyReq && state.sourceState !== 'RESTART') {
+        state.sourceState = 'RESTART';
+        state.restartStartTime = now;
+    }
+
+    if (state.sourceState === 'RESTART' && now - state.restartStartTime > 2000 / simStep) {
+        state.sourceState = anyReq ? 'ACTIVE' : 'IDLE';
+    }
+
+    const msPerUnit = (60000 / config.ppm);
+    if (now - state.lastSourceTime > msPerUnit / simStep) {
+        let tid = -1;
+        if (config.logic === "MAFU") {
+            if (state.activeTargetId !== -1 && !state.paths[state.activeTargetId].requestMaterial) state.activeTargetId = -1;
+            if (state.activeTargetId === -1 && anyReq) state.activeTargetId = state.paths.find(p => p.requestMaterial).id;
+            tid = state.activeTargetId;
+        } else {
+            for(let i=1; i<=3; i++) {
+                let checkId = (state.lastDistributedId + i) % 3;
+                if (state.paths[checkId].requestMaterial) { tid = checkId; break; }
+            }
+        }
+
+        if (state.sourceState === 'ACTIVE' && tid !== -1) {
+            state.paths[tid].units.push({ pos: SOURCE_X, isPurge: false, isStauNachlauf: false });
+            state.lastDistributedId = tid; state.lastActivePathId = tid;
+            state.lastSourceTime = now;
+            if (config.logic === "LISI") state.activeTargetId = -1; 
+        } else if (state.sourceState === 'BUFFER_STOP' && state.pendingAfterStop > 0) {
+            state.paths[state.lastActivePathId].units.push({ pos: SOURCE_X, isPurge: true, isStauNachlauf: false });
+            state.pendingAfterStop--; state.lastSourceTime = now;
+        }
+    }
+}
+
+function draw() {
+    const now = Date.now();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    state.paths.forEach(p => {
+        ctx.strokeStyle = p.requestMaterial ? 'rgba(0, 255, 0, 0.12)' : '#2a2a2a';
+        ctx.lineWidth = 18; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(SOURCE_X, 190); ctx.lineTo(WEICHE_X, p.y); ctx.lineTo(END_X, p.y); ctx.stroke();
+        const maxX = END_X - (config.maxCap - 0.5) * UNIT_SPACING;
+        drawSensor(maxX, p.y, "MAX", p.maxActive);
+        p.units.forEach(u => {
+            let drawY = u.pos < WEICHE_X ? 190 + (p.y - 190) * Math.max(0, (u.pos - SOURCE_X) / (WEICHE_X - SOURCE_X)) : p.y;
+            ctx.fillStyle = u.isStauNachlauf ? '#aaccff' : (u.isPurge && u.isMoving ? '#ff9999' : '#ddd');
+            ctx.beginPath(); ctx.arc(u.pos, drawY, DOT_RADIUS, 0, Math.PI * 2); ctx.fill();
+        });
+        
+        const starved = p.starvationTimer > now;
+        ctx.fillStyle = starved ? '#ffa500' : (p.isDown ? '#f00' : (p.cycleTimer > 0 ? '#0af' : '#0f0'));
+        if (starved) { ctx.shadowBlur = 15; ctx.shadowColor = '#ffa500'; }
+        ctx.beginPath(); ctx.arc(END_X + 25, p.y, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        if (p.cycleTimer > 0) {
+            ctx.fillStyle = '#0af';
+            ctx.fillRect(END_X + 15, p.y + 18, (p.cycleTimer / (config.maxCap * 4500)) * 20, 3);
+        }
+        ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#0f0';
+        ctx.fillText(`OK:   ${p.processedUnits}`, END_X + 50, p.y - 5);
+        ctx.fillStyle = '#f60';
+        ctx.fillText(`MISS: ${p.missedUnits}`, END_X + 50, p.y + 10);
+    });
+    
+    let sCol = (state.sourceState === 'ACTIVE' || state.sourceState === 'BUFFER_STOP') ? '#0f0' : (state.sourceState === 'LOCKED' ? '#f00' : (state.sourceState === 'RESTART' ? '#ff0' : '#444'));
+    ctx.fillStyle = sCol; ctx.shadowBlur = (sCol!=='#444') ? 15 : 0; ctx.shadowColor = sCol;
+    ctx.fillRect(SOURCE_X - 20, 170, 40, 40); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Arial';
+    ctx.fillText(state.sourceState === 'ACTIVE' ? 'ACTIVE' : 'BUFFER STOP', SOURCE_X - 35, 165);
+    const totalSecs = Math.floor(state.elapsedSimTime / 1000);
+    ui('globalStats').innerHTML = `Zeit: ${Math.floor(totalSecs/60).toString().padStart(2,'0')}:${(totalSecs%60).toString().padStart(2,'0')} | Winder-Stopps: ${state.sourceStops}`;
+}
+
+function drawSensor(x, y, label, active) {
+    ctx.fillStyle = active ? '#ff0' : '#444'; ctx.beginPath(); ctx.arc(x, y + 14, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#777'; ctx.font = '7px Arial'; ctx.fillText(label, x - 6, y + 24);
+}
+
+function frame() { update(); draw(); requestAnimationFrame(frame); }
+frame();
+</script>
+</body>
+</html>

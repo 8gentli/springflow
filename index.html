@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Materialfluss Simulationen - Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-green: #28a745;
+            --accent-blue: #0af;
+            --text-main: #eee;
+            --text-dim: #aaa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin: 0 0 15px 0;
+            color: var(--text-main);
+        }
+
+        .tag {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .tag-single { background: rgba(40, 167, 69, 0.2); color: #2ecc71; }
+        .tag-batch { background: rgba(0, 170, 255, 0.2); color: #0af; }
+
+        .desc {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #333;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .card:hover .btn {
+            background: var(--accent-blue);
+        }
+
+        footer {
+            margin-top: 50px;
+            font-size: 0.8rem;
+            color: #555;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Materialfluss-Simulation</h1>
+    <div class="subtitle">Wähle eine Konfiguration für das Transportsystem</div>
+
+    <div class="grid">
+        <a href="Weiche_3-fach-single_v02.html" target="_blank" class="card">
+            <div>
+                <span class="tag tag-single">One Piece Flow</span>
+                <h2>Materialfluss 3-fach-Weiche</h2>
+                <p class="desc">3 Pfade, 6s Taktung. Einzelteil-Anforderung mit Hysterese-Logik.</p>
+            </div>
+            <div class="btn">Simulation öffnen</div>
+        </a>
+
+        <a href="Weiche_4-fach-single_v08.html" target="_blank" class="card">
+            <div>
+                <span class="tag tag-single">One Piece Flow</span>
+                <h2>Materialfluss 4-fach-Weiche</h2>
+                <p class="desc">4 Pfade, 4.5s Taktung. Einzelteil-Anforderung mit Hysterese-Logik.</p>
+            </div>
+            <div class="btn">Simulation öffnen</div>
+        </a>
+
+        <a href="Weiche_3-fach-batch_v05.html" target="_blank" class="card">
+            <div>
+                <span class="tag tag-batch">Batch Processing</span>
+                <h2>Materialfluss 3-fach-Batch</h2>
+                <p class="desc">3-Pfad-System mit 8er-Stapel-Abnahme und Zyklus-Management (4.5s Takt).</p>
+            </div>
+            <div class="btn">Simulation öffnen</div>
+        </a>
+
+        <a href="Weiche_2-fach-batch_v01.html" target="_blank" class="card">
+            <div>
+                <span class="tag tag-batch">Batch Processing</span>
+                <h2>Materialfluss 2-fach-Batch</h2>
+                <p class="desc">2-Pfad-System mit 8er-Stapel-Abnahme und Zyklus-Management (3s Takt).</p>
+            </div>
+            <div class="btn">Simulation öffnen</div>
+        </a>
+    </div>
+
+    <footer>
+        Vibe-Coded with <span style="color: #ff4d4d;">❤</span> and <span style="color: #0af; font-weight: bold;">Gemini</span> by lindersi
+    </footer>
+
+</body>
+</html>
