@@ -1,2 +1,2 @@
 # springflow
-Materialfluss-Simulationen mit Weichen
+Vibe-coded Materialfluss-Simulationen mit Weichen
