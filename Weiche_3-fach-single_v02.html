@@ -169,8 +169,8 @@ function update() {
     }
 
     state.paths.forEach(p => {
-        // Abnahme auf 4.5s geaendert
-        if (now - p.lastTakeTime > 4500 / simStep) {
+        // Abnahme auf 4.7s geaendert
+        if (now - p.lastTakeTime > 4700 / simStep) {
             const isIndividualStop = config.probIndiv > 0 && (Math.random() * 100 < config.probIndiv);
             const isBlocked = state.globalDowntime || isIndividualStop;
 
