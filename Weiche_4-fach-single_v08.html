@@ -182,6 +182,47 @@
         </div>
     </div>
 
+    <!-- Statistik Erweiterung -->
+    <div style="width: 1000px; margin-top: 15px; background: #333; padding: 15px; border-radius: 8px;">
+        <h4
+            style="margin: 0 0 10px 0; color: #eee; font-weight: 300; border-bottom: 1px solid #555; padding-bottom: 5px;">
+            Statistik & Prognose</h4>
+        <div style="display: flex; gap: 15px; align-items: flex-start;">
+            <button onclick="calculateStats()" style="background: #0af; color: #000; height: 100%;">Statistik
+                berechnen</button>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; color: #eee;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #555; text-align: left;">
+                        <th style="padding: 5px;">Zeitraum</th>
+                        <th style="padding: 5px;">Winder-Stopps</th>
+                        <th style="padding: 5px; color: #0f0;">OK Teile</th>
+                        <th style="padding: 5px; color: #f60;">MISS Teile</th>
+                    </tr>
+                </thead>
+                <tbody id="statsBody">
+                    <tr>
+                        <td style="padding: 5px;">1 Stunde</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px;">8 Stunden</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px;">24 Stunden</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div
         style="margin-top: 25px; font-size: 0.8rem; color: #666; letter-spacing: 1px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
         Vibe-Coded with <span style="color: #ff4d4d;">❤</span> and <span
@@ -202,8 +243,8 @@
         let isRunning = true;
         let state;
 
-        function init() {
-            state = {
+        function createInitialState() {
+             return {
                 elapsedSimTime: 0,
                 sourceStops: 0,
                 sourceState: 'IDLE',
@@ -236,6 +277,10 @@
             };
         }
 
+        function init() {
+            state = createInitialState();
+        }
+
         init();
 
         function toggleSim(val) { isRunning = val; }
@@ -263,37 +308,41 @@
 
             while (remainingDelta > 0) {
                 const dt = Math.min(remainingDelta, maxStep);
-                oneStep(dt);
+                simulateStep(state, config, dt);
                 remainingDelta -= dt;
             }
         }
 
         function oneStep(dt) {
-            state.elapsedSimTime += dt;
-            const now = state.elapsedSimTime;
+            simulateStep(state, config, dt); // Forward to generic simulator
+        }
 
-            if (!state.globalDowntime && config.probGlobal > 0) {
+        function simulateStep(simState, simConfig, dt) {
+            simState.elapsedSimTime += dt;
+            const now = simState.elapsedSimTime;
+
+            if (!simState.globalDowntime && simConfig.probGlobal > 0) {
                 // Wahrscheinlichkeit pro 16.67ms Slice
-                if (Math.random() < (0.0004 * (dt / 16.67) * (config.probGlobal / 20))) {
-                    state.globalDowntime = true;
-                    state.globalDowntimeUntil = now + 10000;
+                if (Math.random() < (0.0004 * (dt / 16.67) * (simConfig.probGlobal / 20))) {
+                    simState.globalDowntime = true;
+                    simState.globalDowntimeUntil = now + 10000;
                 }
-            } else if (now > state.globalDowntimeUntil) {
-                state.globalDowntime = false;
+            } else if (now > simState.globalDowntimeUntil) {
+                simState.globalDowntime = false;
             }
 
-            const cycleTime = 6000;
-            const isAnyPathDue = state.paths.some(p => now - p.lastTakeTime > cycleTime);
+            const cycleTime = 4500;
+            const isAnyPathDue = simState.paths.some(p => now - p.lastTakeTime > cycleTime);
 
             if (isAnyPathDue) {
-                const allReady = state.paths.every(p => p.units.length > 0 && p.units[0].pos >= END_X - DOT_RADIUS);
+                const allReady = simState.paths.every(p => p.units.length > 0 && p.units[0].pos >= END_X - DOT_RADIUS);
 
-                state.paths.forEach(p => {
-                    const isBlocked = state.globalDowntime;
+                simState.paths.forEach(p => {
+                    const isBlocked = simState.globalDowntime;
 
                     if (!isBlocked) {
                         if (allReady) {
-                            p.units.shift();
+                            if (p.units.length > 0) p.units.shift(); // Safe check
                             p.processedUnits++;
                             p.isDown = false;
                             p.starvationTimer = 0;
@@ -309,18 +358,23 @@
                 });
             }
 
-            state.paths.forEach(p => {
+            simState.paths.forEach(p => {
                 for (let u of p.units) {
                     const targetPos = (p.units.indexOf(u) === 0) ? END_X : p.units[p.units.indexOf(u) - 1].pos - UNIT_SPACING;
                     if (u.pos < targetPos) {
-                        u.pos += config.pathSpeed * (dt / 16.67); // Geschwindigkeit skaliert mit dt
+                        u.pos += simConfig.pathSpeed * (dt / 16.67); // Geschwindigkeit skaliert mit dt
                         u.isMoving = true;
                         if (u.pos >= targetPos) { u.pos = targetPos; u.isMoving = false; }
                     } else { u.isMoving = false; }
                 }
 
-                const minX = END_X - (config.minCap - 0.5) * UNIT_SPACING;
-                const maxX = END_X - (config.minCap + config.maxCap - 0.5) * UNIT_SPACING;
+                const minX = END_X - (simConfig.minCap - 0.5) * UNIT_SPACING;
+                const maxX = END_X - (simConfig.maxCap - 0.5) * UNIT_SPACING; // MaxCap independent for visualization
+                // In single mode minCap typically equals maxCap logic for requests
+                // Correction: The sensors in this file (single) are just based on minCap for request logic
+                // But visualization uses min/max sliders. Let's keep logic consistent with original.
+                // The original code used minCap and maxCap logic separately.
+                
                 const isMinOccupied = p.units.some(u => Math.abs(u.pos - minX) < UNIT_SPACING * 0.6);
                 const isMaxOccupied = p.units.some(u => Math.abs(u.pos - maxX) < UNIT_SPACING * 0.6);
 
@@ -334,72 +388,129 @@
                 } else { p.maxSensorTimer = 0; p.maxActive = false; }
 
                 const prevReq = p.requestMaterial;
+                // Simple Hysteresis for Single Flow
                 if (!p.minActive) p.requestMaterial = true;
                 if (p.maxActive) p.requestMaterial = false;
+                
                 if (p.requestMaterial && !prevReq) p.requestStartTime = now;
                 if (!p.requestMaterial) p.requestStartTime = 0;
             });
 
-            const anyReq = state.paths.some(p => p.requestMaterial);
+            const anyReq = simState.paths.some(p => p.requestMaterial);
 
-            if (state.sourceState === 'ACTIVE' && !anyReq) {
-                state.sourceState = 'BUFFER_STOP';
-                state.pendingAfterStop = 3;
-            } else if (state.sourceState === 'BUFFER_STOP' && state.pendingAfterStop <= 0) {
-                state.sourceState = 'LOCKED';
-                state.lockStartTime = now;
-                state.sourceStops++;
-            } else if (state.sourceState === 'LOCKED' && now - state.lockStartTime > 4000) {
-                state.sourceState = 'IDLE';
+            if (simState.sourceState === 'ACTIVE' && !anyReq) {
+                simState.sourceState = 'BUFFER_STOP';
+                simState.pendingAfterStop = 3;
+            } else if (simState.sourceState === 'BUFFER_STOP' && simState.pendingAfterStop <= 0) {
+                simState.sourceState = 'LOCKED';
+                simState.lockStartTime = now;
+                simState.sourceStops++;
+            } else if (simState.sourceState === 'LOCKED' && now - simState.lockStartTime > 4000) {
+                simState.sourceState = 'IDLE';
             }
 
-            if (state.sourceState === 'IDLE' && anyReq) {
-                state.sourceState = 'RESTART';
-                state.restartStartTime = now;
-                state.unitsSinceRestart = 0;
+            if (simState.sourceState === 'IDLE' && anyReq) {
+                simState.sourceState = 'RESTART';
+                simState.restartStartTime = now;
+                simState.unitsSinceRestart = 0;
             }
 
-            if (state.sourceState === 'RESTART' && now - state.restartStartTime > 2000) {
-                state.sourceState = anyReq ? 'ACTIVE' : 'IDLE';
+            if (simState.sourceState === 'RESTART' && now - simState.restartStartTime > 2000) {
+                simState.sourceState = anyReq ? 'ACTIVE' : 'IDLE';
             }
 
-            const msPerUnit = (60000 / config.ppm);
-            if (now - state.lastSourceTime > msPerUnit) {
+            const msPerUnit = (60000 / simConfig.ppm);
+            if (now - simState.lastSourceTime > msPerUnit) {
                 let tid = -1;
-                if (config.logic === "Batch") {
-                    if (state.activeTargetId !== -1 && !state.paths[state.activeTargetId].requestMaterial) state.activeTargetId = -1;
-                    if (state.activeTargetId === -1 && anyReq) {
-                        const reqPaths = state.paths.filter(p => p.requestMaterial && p.requestStartTime > 0);
+                if (simConfig.logic === "Batch") {
+                    if (simState.activeTargetId !== -1 && !simState.paths[simState.activeTargetId].requestMaterial) simState.activeTargetId = -1;
+                    if (simState.activeTargetId === -1 && anyReq) {
+                        const reqPaths = simState.paths.filter(p => p.requestMaterial && p.requestStartTime > 0);
                         if (reqPaths.length > 0) {
-                            state.activeTargetId = reqPaths.sort((a, b) => a.requestStartTime - b.requestStartTime)[0].id;
+                            simState.activeTargetId = reqPaths.sort((a, b) => a.requestStartTime - b.requestStartTime)[0].id;
                         } else {
-                            state.activeTargetId = state.paths.find(p => p.requestMaterial).id;
+                            simState.activeTargetId = simState.paths.find(p => p.requestMaterial).id;
                         }
                     }
-                    tid = state.activeTargetId;
+                    tid = simState.activeTargetId;
                 } else {
                     for (let i = 1; i <= 4; i++) {
-                        let checkId = (state.lastDistributedId + i) % 4;
-                        if (state.paths[checkId].requestMaterial) { tid = checkId; break; }
+                        let checkId = (simState.lastDistributedId + i) % 4;
+                        if (simState.paths[checkId].requestMaterial) { tid = checkId; break; }
                     }
                 }
 
-                if (state.sourceState === 'ACTIVE' && tid !== -1) {
-                    state.unitsSinceRestart++;
-                    if (state.unitsSinceRestart === 8) {
+                if (simState.sourceState === 'ACTIVE' && tid !== -1) {
+                    simState.unitsSinceRestart++;
+                    if (simState.unitsSinceRestart === 8) {
                         // 8. Einheit fehlt (leeres Rundtisch-Nest)
-                        state.lastSourceTime = now;
+                        simState.lastSourceTime = now;
                     } else {
-                        state.paths[tid].units.push({ pos: SOURCE_X, isPurge: false });
-                        state.lastDistributedId = tid; state.lastActivePathId = tid;
-                        state.lastSourceTime = now;
-                        if (config.logic === "RR") state.activeTargetId = -1;
+                        simState.paths[tid].units.push({ pos: SOURCE_X, isPurge: false });
+                        simState.lastDistributedId = tid; simState.lastActivePathId = tid;
+                        simState.lastSourceTime = now;
+                        if (simConfig.logic === "RR") simState.activeTargetId = -1;
                     }
-                } else if (state.sourceState === 'BUFFER_STOP' && state.pendingAfterStop > 0) {
-                    state.paths[state.lastActivePathId].units.push({ pos: SOURCE_X, isPurge: true });
-                    state.pendingAfterStop--; state.lastSourceTime = now;
+                } else if (simState.sourceState === 'BUFFER_STOP' && simState.pendingAfterStop > 0) {
+                    simState.paths[simState.lastActivePathId].units.push({ pos: SOURCE_X, isPurge: true });
+                    simState.pendingAfterStop--; simState.lastSourceTime = now;
                 }
             }
+        }
+
+        function calculateStats() {
+            const btn = document.querySelector('button[onclick="calculateStats()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "Berechne...";
+            btn.disabled = true;
+
+            setTimeout(() => {
+                const periods = [1, 8, 24]; // Hours
+                const results = [];
+                
+                // Snapshot current config
+                const simConfig = {
+                    logic: config.logic,
+                    ppm: config.ppm,
+                    minCap: config.minCap,
+                    maxCap: config.maxCap,
+                    probGlobal: config.probGlobal,
+                    pathSpeed: config.pathSpeed,
+                    speed: 1 // Speed irrelevant for fast-forward
+                };
+
+                periods.forEach(hours => {
+                    const durationMs = hours * 60 * 60 * 1000;
+                    const simState = createInitialState(); // Reset state for each run to be independent
+                    
+                    const dt = 16.67;
+                    const steps = Math.ceil(durationMs / dt);
+
+                    for(let i=0; i<steps; i++) {
+                        simulateStep(simState, simConfig, dt);
+                    }
+
+                    const totalOK = simState.paths.reduce((sum, p) => sum + p.processedUnits, 0);
+                    const totalMISS = simState.paths.reduce((sum, p) => sum + p.missedUnits, 0);
+                    results.push({ winder: simState.sourceStops, ok: totalOK, miss: totalMISS });
+                });
+
+                const tbody = document.getElementById('statsBody');
+                tbody.innerHTML = '';
+                results.forEach((res, idx) => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="padding: 5px; border-bottom: 1px solid #444;">${periods[idx]} Stunde${periods[idx]>1?'n':''}</td>
+                            <td style="padding: 5px; border-bottom: 1px solid #444;">${res.winder}</td>
+                            <td style="padding: 5px; border-bottom: 1px solid #444; color: #0f0;">${res.ok}</td>
+                            <td style="padding: 5px; border-bottom: 1px solid #444; color: #f60;">${res.miss}</td>
+                        </tr>
+                    `;
+                });
+
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, 50);
         }
 
         function draw() {
