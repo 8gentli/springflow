@@ -187,36 +187,38 @@
         <h4
             style="margin: 0 0 10px 0; color: #eee; font-weight: 300; border-bottom: 1px solid #555; padding-bottom: 5px;">
             Statistik & Prognose</h4>
-        <div style="display: flex; gap: 15px; align-items: flex-start;">
-            <button onclick="calculateStats()" style="background: #0af; color: #000; height: 100%;">Statistik
-                berechnen</button>
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; color: #eee;">
+
+        <!-- Input und Button oberhalb der Tabelle -->
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 15px;">
+            <label style="color: #aaa; font-size: 0.85rem;">Zeitraum:</label>
+            <input type="text" id="statsDuration" value="01:00" placeholder="hh:mm"
+                style="width: 80px; padding: 5px; background: #222; color: #eee; border: 1px solid #555; border-radius: 4px; text-align: center; font-family: monospace;">
+            <button onclick="calculateStats()"
+                style="background: #0af; color: #000; padding: 8px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                Statistik berechnen
+            </button>
+        </div>
+
+        <!-- Tabelle mit erweiterten Spalten -->
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; color: #eee;">
                 <thead>
                     <tr style="border-bottom: 1px solid #555; text-align: left;">
                         <th style="padding: 5px;">Zeitraum</th>
                         <th style="padding: 5px;">Winder-Stopps</th>
-                        <th style="padding: 5px; color: #0f0;">OK Teile</th>
-                        <th style="padding: 5px; color: #f60;">MISS Teile</th>
+                        <th style="padding: 5px; color: #0f0;">OK</th>
+                        <th style="padding: 5px; color: #f60;">MISS</th>
+                        <th style="padding: 5px; color: #aaa;">Logik</th>
+                        <th style="padding: 5px; color: #aaa;">PPM</th>
+                        <th style="padding: 5px; color: #aaa;">Min-Sensor</th>
+                        <th style="padding: 5px; color: #aaa;">Max-Sensor</th>
+                        <th style="padding: 5px; color: #aaa;">Global Stopp %</th>
+                        <th style="padding: 5px; color: #aaa;">Pfad-Geschw.</th>
                     </tr>
                 </thead>
                 <tbody id="statsBody">
                     <tr>
-                        <td style="padding: 5px;">1 Stunde</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 5px;">8 Stunden</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 5px;">24 Stunden</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
+                        <td style="padding: 5px;" colspan="10">Keine Daten - Bitte "Statistik berechnen" klicken</td>
                     </tr>
                 </tbody>
             </table>
@@ -244,7 +246,7 @@
         let state;
 
         function createInitialState() {
-             return {
+            return {
                 elapsedSimTime: 0,
                 sourceStops: 0,
                 sourceState: 'IDLE',
@@ -374,7 +376,7 @@
                 // Correction: The sensors in this file (single) are just based on minCap for request logic
                 // But visualization uses min/max sliders. Let's keep logic consistent with original.
                 // The original code used minCap and maxCap logic separately.
-                
+
                 const isMinOccupied = p.units.some(u => Math.abs(u.pos - minX) < UNIT_SPACING * 0.6);
                 const isMaxOccupied = p.units.some(u => Math.abs(u.pos - maxX) < UNIT_SPACING * 0.6);
 
@@ -391,7 +393,7 @@
                 // Simple Hysteresis for Single Flow
                 if (!p.minActive) p.requestMaterial = true;
                 if (p.maxActive) p.requestMaterial = false;
-                
+
                 if (p.requestMaterial && !prevReq) p.requestStartTime = now;
                 if (!p.requestMaterial) p.requestStartTime = 0;
             });
@@ -465,9 +467,22 @@
             btn.disabled = true;
 
             setTimeout(() => {
-                const periods = [1, 8, 24]; // Hours
-                const results = [];
-                
+                // Parse time input (hh:mm)
+                const timeInput = document.getElementById('statsDuration').value;
+                const timeParts = timeInput.split(':');
+                const hours = parseInt(timeParts[0]) || 0;
+                const minutes = parseInt(timeParts[1]) || 0;
+                const totalMinutes = hours * 60 + minutes;
+
+                if (totalMinutes <= 0) {
+                    alert('Bitte geben Sie einen gültigen Zeitraum ein (hh:mm)');
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                const durationMs = totalMinutes * 60 * 1000;
+
                 // Snapshot current config
                 const simConfig = {
                     logic: config.logic,
@@ -476,37 +491,39 @@
                     maxCap: config.maxCap,
                     probGlobal: config.probGlobal,
                     pathSpeed: config.pathSpeed,
-                    speed: 1 // Speed irrelevant for fast-forward
+                    speed: 1
                 };
 
-                periods.forEach(hours => {
-                    const durationMs = hours * 60 * 60 * 1000;
-                    const simState = createInitialState(); // Reset state for each run to be independent
-                    
-                    const dt = 16.67;
-                    const steps = Math.ceil(durationMs / dt);
+                const simState = createInitialState();
+                const dt = 16.67;
+                const steps = Math.ceil(durationMs / dt);
 
-                    for(let i=0; i<steps; i++) {
-                        simulateStep(simState, simConfig, dt);
-                    }
+                for (let i = 0; i < steps; i++) {
+                    simulateStep(simState, simConfig, dt);
+                }
 
-                    const totalOK = simState.paths.reduce((sum, p) => sum + p.processedUnits, 0);
-                    const totalMISS = simState.paths.reduce((sum, p) => sum + p.missedUnits, 0);
-                    results.push({ winder: simState.sourceStops, ok: totalOK, miss: totalMISS });
-                });
+                const totalOK = simState.paths.reduce((sum, p) => sum + p.processedUnits, 0);
+                const totalMISS = simState.paths.reduce((sum, p) => sum + p.missedUnits, 0);
 
+                // Format time display
+                const timeDisplay = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+
+                // Populate table with single row
                 const tbody = document.getElementById('statsBody');
-                tbody.innerHTML = '';
-                results.forEach((res, idx) => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td style="padding: 5px; border-bottom: 1px solid #444;">${periods[idx]} Stunde${periods[idx]>1?'n':''}</td>
-                            <td style="padding: 5px; border-bottom: 1px solid #444;">${res.winder}</td>
-                            <td style="padding: 5px; border-bottom: 1px solid #444; color: #0f0;">${res.ok}</td>
-                            <td style="padding: 5px; border-bottom: 1px solid #444; color: #f60;">${res.miss}</td>
-                        </tr>
-                    `;
-                });
+                tbody.innerHTML = `
+                    <tr>
+                        <td style="padding: 5px; border-bottom: 1px solid #444;">${timeDisplay}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444;">${simState.sourceStops}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #0f0;">${totalOK}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #f60;">${totalMISS}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #aaa;">${simConfig.logic}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #aaa;">${simConfig.ppm}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #aaa;">${simConfig.minCap}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #aaa;">${simConfig.maxCap}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #aaa;">${simConfig.probGlobal}%</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #444; color: #aaa;">${simConfig.pathSpeed}</td>
+                    </tr>
+                `;
 
                 btn.innerText = originalText;
                 btn.disabled = false;
