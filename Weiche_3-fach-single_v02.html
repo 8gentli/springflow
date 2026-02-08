@@ -353,7 +353,7 @@
                 state.sourceState = 'IDLE';
             }
 
-            if ((state.sourceState === 'IDLE' || state.sourceState === 'BUFFER_STOP' || state.sourceState === 'LOCKED') && anyReq && state.sourceState !== 'RESTART') {
+            if (state.sourceState === 'IDLE' && anyReq) {
                 state.sourceState = 'RESTART';
                 state.restartStartTime = now;
                 state.unitsSinceRestart = 0;
