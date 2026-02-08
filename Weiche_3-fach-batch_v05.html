@@ -174,7 +174,7 @@
     </div>
 
     <div
-        style="margin-top: 25px; font-size: 0.8rem; color: #666; letter-spacing: 1px; font-family: 'Segoe UI', sans-serif;">
+        style="margin-top: 25px; font-size: 0.8rem; color: #666; letter-spacing: 1px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
         Vibe-Coded with <span style="color: #ff4d4d;">❤</span> and <span
             style="color: #0af; font-weight: bold;">Antigravity</span> by lindersi
     </div>
@@ -301,9 +301,11 @@
                 state.paths.forEach(p => p.isDown = p.isBlocked);
             }
 
+            const groupReadyToStart = state.paths.every(p => p.cycleTimer > 0 || (p.maxActive && p.cycleTimer <= 0));
+
             state.paths.forEach(p => {
-                // Batch-Abnahme (bleibt individuell)
-                if (p.maxActive && p.cycleTimer <= 0) {
+                // Batch-Abnahme (Synchronisiert)
+                if (groupReadyToStart && p.maxActive && p.cycleTimer <= 0) {
                     const batchSize = Math.min(p.units.length, config.maxCap);
                     for (let i = 0; i < batchSize; i++) {
                         p.units.shift();
