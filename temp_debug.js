@@ -1,347 +1,3 @@
-<!DOCTYPE html>
-<html lang="de">
-
-<head>
-    <meta charset="UTF-8">
-    <title>Materialfluss Simulation Weiche Batch vs Round-Robin</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #1a1a1a;
-            color: #eee;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0;
-            padding: 10px;
-            overflow-x: hidden;
-        }
-
-        canvas {
-            background: #222;
-            border: 1px solid #444;
-            border-radius: 4px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        }
-
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 10px;
-            width: 1000px;
-            margin-top: 15px;
-            background: #333;
-            padding: 15px;
-            border-radius: 8px;
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        label {
-            font-size: 0.6rem;
-            margin-bottom: 3px;
-            color: #aaa;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stats-container {
-            display: flex;
-            gap: 20px;
-            width: 1000px;
-            margin-top: 10px;
-        }
-
-        .stats-box {
-            flex: 1;
-            font-family: monospace;
-            background: #000;
-            padding: 8px;
-            border-radius: 4px;
-            border-left: 4px solid #0f0;
-            font-size: 0.85rem;
-        }
-
-        input[type=range],
-        select {
-            width: 100%;
-            cursor: pointer;
-            background: #444;
-            color: white;
-            border: 1px solid #555;
-            padding: 3px;
-        }
-
-        span {
-            font-size: 0.7em;
-            color: #0af;
-        }
-
-        .button-row {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-            justify-content: center;
-            border-top: 1px solid #555;
-            padding-top: 10px;
-        }
-
-        button {
-            padding: 10px 25px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-            text-transform: uppercase;
-            transition: 0.2s;
-            min-width: 100px;
-        }
-
-        .btn-start {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-stop {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-reset {
-            background: #6c757d;
-            color: white;
-        }
-
-        button:hover {
-            opacity: 0.8;
-            transform: translateY(-1px);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .stats-table-container {
-            width: 1000px;
-            margin-top: 10px;
-            background: #333;
-            padding: 15px;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .stats-table {
-            width: 100%;
-            border-collapse: collapse;
-            color: #eee;
-            font-family: monospace;
-            font-size: 0.85rem;
-        }
-
-        .stats-table th,
-        .stats-table td {
-            border: 1px solid #444;
-            padding: 5px 8px;
-            text-align: left;
-        }
-
-        .stats-table th {
-            background: #222;
-            color: #aaa;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-        }
-
-        .stats-table tr:nth-child(even) {
-            background: #2a2a2a;
-        }
-
-        .stats-table td.highlight {
-            color: #0f0;
-        }
-
-        .stats-table td.warning {
-            color: #ffa500;
-        }
-
-        .stats-table td.error {
-            color: #f00;
-        }
-
-        .stats-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-
-        .stats-header h4 {
-            margin: 0;
-            color: #eee;
-            font-weight: 400;
-        }
-
-        .time-input-group {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-        }
-
-        .time-input-group input {
-            width: 70px;
-            padding: 5px;
-            background: #222;
-            color: #eee;
-            border: 1px solid #555;
-            border-radius: 4px;
-            text-align: center;
-            font-family: monospace;
-        }
-
-        .time-input-group .arrow-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 1px;
-        }
-
-        .time-input-group .arrow-buttons button {
-            background: #444;
-            color: #eee;
-            border: 1px solid #555;
-            padding: 0px 1px;
-            cursor: pointer;
-            font-size: 8px;
-            line-height: 1;
-            border-radius: 2px;
-            width: 10px;
-            min-width: unset;
-            height: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-    </style>
-</head>
-
-<body>
-
-    <h3 style="margin: 5px 0; color: #eee; font-weight: 300;">Materialfluss Simulation Weiche Batch vs Round-Robin (3
-        Pfade)</h3>
-    <canvas id="simCanvas" width="1000" height="380"></canvas>
-
-    <div class="stats-container">
-        <div class="stats-box" id="globalStats">Zeit: 00:00 | Winder-Stopps: 0</div>
-    </div>
-
-    <div class="controls">
-        <div class="control-group">
-            <label>Weichen-Logik</label>
-            <select id="logicMode">
-                <option value="Batch">Batch</option>
-                <option value="RR">Round-Robin</option>
-            </select>
-        </div>
-        <div class="control-group">
-            <label>Sender-Takt (ppm)</label>
-            <input type="range" id="senderPpm" min="40" max="60" value="55">
-            <span id="senderPpmVal">55 ppm</span>
-        </div>
-        <div class="control-group">
-            <label>Global Stopp (%)</label>
-            <input type="range" id="probGlobal" min="0" max="100" value="4">
-            <span id="probGlobalVal">4%</span>
-        </div>
-        <div class="control-group">
-            <label>Min-Sensor (Federn)</label>
-            <input type="range" id="minCap" min="1" max="10" value="5">
-            <span id="minCapVal">5</span>
-        </div>
-        <div class="control-group">
-            <label>Max-Sensor (Federn)</label>
-            <input type="range" id="maxCap" min="1" max="15" value="10">
-            <span id="maxCapVal">10</span>
-        </div>
-        <div class="control-group">
-            <label>Pfad-Geschw.</label>
-            <input type="range" id="pathSpeed" min="1" max="10" step="0.5" value="3">
-            <span id="pathSpeedVal">3</span>
-        </div>
-        <div class="control-group">
-            <label>Sim.-Tempo</label>
-            <input type="range" id="simSpeed" min="1" max="50" step="1" value="1">
-            <span id="simSpeedVal">1</span>
-        </div>
-
-        <div class="button-row">
-            <button class="btn-start" onclick="toggleSim(true)">Start</button>
-            <button class="btn-stop" onclick="toggleSim(false)">Stopp</button>
-            <button class="btn-reset" onclick="resetSim()">Reset</button>
-        </div>
-    </div>
-
-    <div style="width: 1000px; margin-top: 15px; background: #333; padding: 15px; border-radius: 8px;">
-        <h4
-            style="margin: 0 0 10px 0; color: #eee; font-weight: 300; border-bottom: 1px solid #555; padding-bottom: 5px;">
-            Statistik & Prognose</h4>
-
-        <!-- Input und Button oberhalb der Tabelle -->
-        <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 15px;">
-            <label style="color: #aaa; font-size: 0.85rem;">Zeitraum (hh:mm):</label>
-            <div style="display: flex; align-items: center; gap: 3px;">
-                <input type="text" id="statsDuration" value="01:00" placeholder="hh:mm"
-                    style="width: 70px; padding: 5px; background: #222; color: #eee; border: 1px solid #555; border-radius: 4px; text-align: center; font-family: monospace;">
-                <div style="display: flex; flex-direction: column; gap: 1px;">
-                    <button onclick="adjustTime(30)"
-                        style="background: #444; color: #eee; border: 1px solid #555; padding: 0px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 15px; height: 10px; min-width: 0;">▲</button>
-                    <button onclick="adjustTime(-30)"
-                        style="background: #444; color: #eee; border: 1px solid #555; padding: 0px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 15px; height: 10px; min-width: 0;">▼</button>
-                </div>
-            </div>
-            <button onclick="calculateStats()"
-                style="background: #0af; color: #000; padding: 8px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
-                Statistik berechnen
-            </button>
-        </div>
-
-        <!-- Tabelle mit erweiterten Spalten -->
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; color: #eee;">
-                <thead>
-                    <tr style="border-bottom: 1px solid #555; text-align: left;">
-                        <th style="padding: 5px;">Zeitraum</th>
-                        <th style="padding: 5px;">Winder-Stopps</th>
-                        <th style="padding: 5px; color: #0f0;">OK</th>
-                        <th style="padding: 5px; color: #f60;">MISS</th>
-                        <th style="padding: 5px; color: #aaa;">Logik</th>
-                        <th style="padding: 5px; color: #aaa;">PPM</th>
-                        <th style="padding: 5px; color: #aaa;">Min-Sensor</th>
-                        <th style="padding: 5px; color: #aaa;">Max-Sensor</th>
-                        <th style="padding: 5px; color: #aaa;">Global Stopp %</th>
-                        <th style="padding: 5px; color: #aaa;">Pfad-Geschw.</th>
-                    </tr>
-                </thead>
-                <tbody id="statsBody">
-                    <tr>
-                        <td style="padding: 5px;" colspan="10">Keine Daten - Bitte "Statistik berechnen" klicken</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div
-        style="margin-top: 25px; font-size: 0.8rem; color: #666; letter-spacing: 1px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-        Vibe-Coded with <span style="color: #ff4d4d; font-size: inherit;">❤</span> and <span
-            style="color: #0af; font-weight: bold; font-size: inherit;">Antigravity</span> by lindersi
-    </div>
-
-    <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -355,18 +11,7 @@
         let isRunning = true;
         let simState; // Renamed from 'state' to avoid conflict with global 'state'
         let statsHistory = [];
-        let statsDurationMs = 60 * 60 * 1000; // Default 1 hour for stats calculation
-
-        const ui = (id) => document.getElementById(id);
-        const simConfig = {
-            get logic() { return ui('logicMode').value; },
-            get ppm() { return parseInt(ui('senderPpm').value); },
-            get minCap() { return parseInt(ui('minCap').value); },
-            get maxCap() { return parseInt(ui('maxCap').value); },
-            get probGlobal() { return parseInt(ui('probGlobal').value); },
-            get pathSpeed() { return parseFloat(ui('pathSpeed').value); },
-            get speed() { return parseFloat(ui('simSpeed').value); }
-        };
+        let statsDurationMs = 60 * 1000; // Default 1 minute for stats calculation
 
         function init() {
             simState = {
@@ -422,32 +67,39 @@
         function toggleSim(val) { isRunning = val; }
         function resetSim() { init(); toggleSim(false); }
 
-
+        const ui = (id) => document.getElementById(id);
+        const simConfig = { // Renamed from 'config' to avoid conflict
+            get logic() { return ui('logicMode').value; },
+            get ppm() { return parseInt(ui('senderPpm').value); },
+            get minCap() { return parseInt(ui('minCap').value); },
+            get maxCap() { return parseInt(ui('maxCap').value); },
+            get probGlobal() { return parseInt(ui('probGlobal').value); },
+            get pathSpeed() { return parseFloat(ui('pathSpeed').value); },
+            get speed() { return parseFloat(ui('simSpeed').value); }
+        };
 
         ['senderPpm', 'pathSpeed', 'probGlobal', 'simSpeed', 'minCap', 'maxCap'].forEach(id => {
             ui(id).oninput = () => ui(id + 'Val').innerText = ui(id).value + (id.includes('prob') ? '%' : '');
         });
 
         ui('statsDuration').addEventListener('change', (e) => {
-            const [hours, minutes] = e.target.value.split(':').map(Number);
-            if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && minutes >= 0 && minutes < 60) {
-                statsDurationMs = (hours * 60 + minutes) * 60 * 1000;
+            const [minutes, seconds] = e.target.value.split(':').map(Number);
+            if (!isNaN(minutes) && !isNaN(seconds) && minutes >= 0 && seconds >= 0 && seconds < 60) {
+                statsDurationMs = (minutes * 60 + seconds) * 1000;
             } else {
                 updateStatsDurationInput(); // Revert to current valid value
             }
         });
 
         function updateStatsDurationInput() {
-            const totalMinutes = statsDurationMs / 60000;
-            const hours = Math.floor(totalMinutes / 60);
-            const minutes = totalMinutes % 60;
-            ui('statsDuration').value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            const totalSeconds = statsDurationMs / 1000;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            ui('statsDuration').value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        function adjustTime(deltaMinutes) {
-            let totalMinutes = statsDurationMs / 60000;
-            totalMinutes = Math.max(1, totalMinutes + deltaMinutes);
-            statsDurationMs = totalMinutes * 60000;
+        function adjustTime(deltaSeconds) {
+            statsDurationMs = Math.max(0, statsDurationMs + deltaSeconds * 1000);
             updateStatsDurationInput();
         }
 
@@ -760,7 +412,3 @@
 
         function frame() { update(); draw(); requestAnimationFrame(frame); }
         frame();
-    </script>
-</body>
-
-</html>
