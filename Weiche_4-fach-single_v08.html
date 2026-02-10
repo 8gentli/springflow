@@ -196,9 +196,9 @@
                     style="width: 70px; padding: 5px; background: #222; color: #eee; border: 1px solid #555; border-radius: 4px; text-align: center; font-family: monospace;">
                 <div style="display: flex; flex-direction: column; gap: 1px;">
                     <button onclick="adjustTime(30)"
-                        style="background: #444; color: #eee; border: 1px solid #555; padding: 1px 2px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 12px;">▲</button>
+                        style="background: #444; color: #eee; border: 1px solid #555; padding: 0px 1px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 10px;">▲</button>
                     <button onclick="adjustTime(-30)"
-                        style="background: #444; color: #eee; border: 1px solid #555; padding: 1px 2px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 12px;">▼</button>
+                        style="background: #444; color: #eee; border: 1px solid #555; padding: 0px 1px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 10px;">▼</button>
                 </div>
             </div>
             <button onclick="calculateStats()"
@@ -379,11 +379,8 @@
                 }
 
                 const minX = END_X - (simConfig.minCap - 0.5) * UNIT_SPACING;
-                const maxX = END_X - (simConfig.maxCap - 0.5) * UNIT_SPACING; // MaxCap independent for visualization
-                // In single mode minCap typically equals maxCap logic for requests
-                // Correction: The sensors in this file (single) are just based on minCap for request logic
-                // But visualization uses min/max sliders. Let's keep logic consistent with original.
-                // The original code used minCap and maxCap logic separately.
+                const maxX = END_X - (simConfig.maxCap - 0.5) * UNIT_SPACING; // MaxCap independent for visualization (Autonomous)
+                // In single mode, make sensors autonomous: Min controls Request ON, Max controls Request OFF independently.
 
                 const isMinOccupied = p.units.some(u => Math.abs(u.pos - minX) < UNIT_SPACING * 0.6);
                 const isMaxOccupied = p.units.some(u => Math.abs(u.pos - maxX) < UNIT_SPACING * 0.6);
@@ -569,7 +566,7 @@
                 ctx.beginPath(); ctx.moveTo(SOURCE_X, 190); ctx.lineTo(WEICHE_X, p.y); ctx.lineTo(END_X, p.y); ctx.stroke();
 
                 const minX = END_X - (config.minCap - 0.5) * UNIT_SPACING;
-                const maxX = END_X - (config.minCap + config.maxCap - 0.5) * UNIT_SPACING;
+                const maxX = END_X - (config.maxCap - 0.5) * UNIT_SPACING;
                 drawSensor(minX, p.y, "MIN", p.minActive);
                 drawSensor(maxX, p.y, "MAX", p.maxActive);
 
