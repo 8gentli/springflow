@@ -190,9 +190,17 @@
 
         <!-- Input und Button oberhalb der Tabelle -->
         <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 15px;">
-            <label style="color: #aaa; font-size: 0.85rem;">Zeitraum (min):</label>
-            <input type="number" id="statsDuration" value="60" min="30" step="30"
-                style="width: 100px; padding: 5px; background: #222; color: #eee; border: 1px solid #555; border-radius: 4px; text-align: center; font-family: monospace;">
+            <label style="color: #aaa; font-size: 0.85rem;">Zeitraum:</label>
+            <div style="display: flex; align-items: center; gap: 3px;">
+                <input type="text" id="statsDuration" value="01:00" placeholder="hh:mm"
+                    style="width: 70px; padding: 5px; background: #222; color: #eee; border: 1px solid #555; border-radius: 4px; text-align: center; font-family: monospace;">
+                <div style="display: flex; flex-direction: column; gap: 1px;">
+                    <button onclick="adjustTime(30)"
+                        style="background: #444; color: #eee; border: 1px solid #555; padding: 1px 2px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 12px;">▲</button>
+                    <button onclick="adjustTime(-30)"
+                        style="background: #444; color: #eee; border: 1px solid #555; padding: 1px 2px; cursor: pointer; font-size: 8px; line-height: 1; border-radius: 2px; width: 12px;">▼</button>
+                </div>
+            </div>
             <button onclick="calculateStats()"
                 style="background: #0af; color: #000; padding: 8px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
                 Statistik berechnen
@@ -227,8 +235,8 @@
 
     <div
         style="margin-top: 25px; font-size: 0.8rem; color: #666; letter-spacing: 1px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-        Vibe-Coded with <span style="color: #ff4d4d;">❤</span> and <span
-            style="color: #0af; font-weight: bold;">Antigravity</span> by lindersi
+        Vibe-Coded with <span style="color: #ff4d4d; font-size: inherit;">❤</span> and <span
+            style="color: #0af; font-weight: bold; font-size: inherit;">Antigravity</span> by lindersi
     </div>
 
     <script>
@@ -460,6 +468,19 @@
             }
         }
 
+        function adjustTime(deltaMinutes) {
+            const input = document.getElementById('statsDuration');
+            const [hours, minutes] = input.value.split(':').map(Number);
+            let totalMinutes = hours * 60 + minutes + deltaMinutes;
+
+            // Minimum 30 minutes
+            if (totalMinutes < 30) totalMinutes = 30;
+
+            const newHours = Math.floor(totalMinutes / 60);
+            const newMinutes = totalMinutes % 60;
+            input.value = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+        }
+
         function calculateStats() {
             const btn = document.querySelector('button[onclick="calculateStats()"]');
             const originalText = btn.innerText;
@@ -467,8 +488,10 @@
             btn.disabled = true;
 
             setTimeout(() => {
-                // Parse time input (minutes)
-                const totalMinutes = parseInt(document.getElementById('statsDuration').value) || 0;
+                // Parse time input (hh:mm)
+                const timeInput = document.getElementById('statsDuration').value;
+                const [hours, minutes] = timeInput.split(':').map(Number);
+                const totalMinutes = hours * 60 + minutes;
 
                 if (totalMinutes <= 0) {
                     alert('Bitte geben Sie einen gültigen Zeitraum ein (min ≥ 30)');
@@ -502,9 +525,9 @@
                 const totalMISS = simState.paths.reduce((sum, p) => sum + p.missedUnits, 0);
 
                 // Format time display
-                const hours = Math.floor(totalMinutes / 60);
-                const minutes = totalMinutes % 60;
-                const timeDisplay = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                const displayHours = Math.floor(totalMinutes / 60);
+                const displayMinutes = totalMinutes % 60;
+                const timeDisplay = `${String(displayHours).padStart(2, '0')}:${String(displayMinutes).padStart(2, '0')}`;
 
                 // Prepend new row to table (newest on top)
                 const tbody = document.getElementById('statsBody');
