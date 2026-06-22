@@ -19,4 +19,12 @@ Zusatz:
 
 ### Taktraten
 
+Diese werden folgendermassen berechnet:  
+| Bezeichnung | Asic CSS, 2x 4-fach-Zuführung | Asic IS, 3x 2-fach-Zuführung | Bemerkung |  
+| --- | --- | --- | --- |  
+| Weiche | **4-fach** | **3-fach** | Spuren pro Winder |  
+| Spuren total | 8 | 6 | (Spuren pro Winder * 2 Winder) |  
+| ppm pro Spur | 80 | 80 | Taktrate Asic insgesamt |  
+| ppm pro Spur | 10.00 | 13.33 | (ppm pro Spur / Spuren total) |  
+| **Takt pro Spur (s)**| **6.00** | **4.50** | (60 s / ppm pro Spur) **Abnahme-Zyklus Asic** |  
 
