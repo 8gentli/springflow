@@ -9,3 +9,5 @@ Varianten:
 
 Zusatz:
 - Simulation Transportversuch für YDS-200 mit 3-fach- und 4-fach-Weiche.
+
+**Achtung!** Push/Pull nie vergessen! Repo wird an verschiedenen Orten bearbeitet.
