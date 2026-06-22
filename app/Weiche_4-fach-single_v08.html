@@ -341,7 +341,7 @@
                 simState.globalDowntime = false;
             }
 
-            const cycleTime = 4500;
+            const cycleTime = 6000; // 6s fixed
             const isAnyPathDue = simState.paths.some(p => now - p.lastTakeTime > cycleTime);
 
             if (isAnyPathDue) {
